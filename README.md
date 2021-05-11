@@ -8,7 +8,7 @@
 * Can effectively scale up/down to meet the current load
 * Reduced time to provision
 * Ease of use
-* Little lines of code - a lot of background processes are occurring
+* Concise - a lot of background processes are occurring, more concise than Ansible
 * Always keeping up-to-date
 
 ## Terraform Diagram
@@ -21,7 +21,8 @@
 * `terraform destroy` - destroys/terminates services running in main.tf
 
 ## Terraform to launch an EC2 with a VPC, subnets, SG services of AWS
-The steps involving environment variables are specific to Windows.
+* The steps involving environment variables are specific to Windows.
+* Within the coding steps, variables from `variable.tf` will be used
 
 ### Step 1: Terraform Installation and Setup
 1. Download Terraform for the applicable platform here: https://www.terraform.io/downloads.html
@@ -41,62 +42,65 @@ The steps involving environment variables are specific to Windows.
 6. Click `Ok` until everything closes
 * NOTE: Terraform will look for these keys in the environment variables
 
-### Step 3: Creating an EC2 Instance from an AMI
+### Step 3: Create a VPC
 1. First, we have to specify the cloud provider we are using. In this case, AWS.
    ```
    provider "aws" {
      # Define the region to launch the instance (Ireland)
-	 region = "eu-west-1"
+   region = "eu-west-1"
    }
    ```
-2. Now, we can add the code to configure our EC2 instance with an AMI. This will create the web app by using `aws_instance`.
-   ```
-   resource "aws_instance" "web_app_instance" {
-     # Adding the AMI ID
-	 ami = "your_ami_id"
-
-	 # Adding the instance type
-	 instance_type = "t2.micro"
-
-	 # Enabling a public IP for the web app
-	 associate_public_ip_address = true
-
-	 # Specifying the key (to SSH)
-	 key_name = "eng84devops"
-
-	 tags = {
-       Name = "eng84_william_terraform_web"
-     }
-   }
-   ```
-
-### Step 4: Create a VPC
-* To do this, we will use `aws_vpc`.
+2. Now, we can add the code to configure our VPC using `aws_vpc`.
 ```
-# Create a default VPC
-resource "aws_vpc" "terraform_vpc_test" {
+# Create a VPC
+resource "aws_vpc" "terraform_vpc" {
   cidr_block = "59.59.0.0/16"
   instance_tenancy = "default"
   
   tags = {
-    Name = "eng84_william_terraform_vpc"
+    Name = var.aws_vpc_name
   }
 }
 ``` 
 
-### Step 5: Create and Assign a Subnet to the VPC
+### Step 4: Create and Assign a Subnet to the VPC
 * To do this, we will use `aws_subnet`.
 ```
 # Create and assign a subnet to the VPC
 resource "aws_subnet" "subnet_for_vpc" {
-  vpc_id            = aws_vpc.terraform_vpc_test.id
-  cidr_block        = "59.59.1.0/24"
+  vpc_id = aws_vpc.terraform_vpc.id
+  cidr_block = "59.59.1.0/24"
 
   tags = {
-    Name = "eng84_william_terraform_subnet"
+    Name = var.aws_subnet_name
   }
 }
 ```
+
+### Step 5: Creating an EC2 Instance from an AMI
+* To do this, we will use `aws_instance`. This will create the web app by using it's AMI.
+   ```
+   resource "aws_instance" "web_app_instance" {
+     # Adding the AMI ID
+   ami = var.webapp_ami_id
+
+   # Adding the instance type
+   instance_type = "t2.micro"
+
+   # Enabling a public IP for the web app
+   associate_public_ip_address = true
+
+   # Specifying the key (to SSH)
+   key_name = var.aws_key_name
+
+   # Assigning a subnet
+   subnet_id = aws_subnet.subnet_for_vpc.id
+
+   tags = {
+       Name = var.webapp_name
+     }
+   }
+   ```
 
 AMI IDs:<br />
 * Web: ami-0b1ba632b3ed6e2d7
