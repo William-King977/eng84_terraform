@@ -8,14 +8,14 @@ provider "aws" {
 	region = "eu-west-1"
 }
 
-# Create a VPC.
+# Create a VPC
 resource "aws_vpc" "terraform_vpc" {
-	cidr_block = "59.59.0.0/16"
-	instance_tenancy = "default"
+  cidr_block = "59.59.0.0/16"
+  instance_tenancy = "default"
   
-	tags = {
-		Name = var.aws_vpc_name
-	}
+  tags = {
+    Name = var.aws_vpc_name
+  }
 }
 
 # Create and assign an Internet Gateway
@@ -28,8 +28,8 @@ resource "aws_internet_gateway" "terraform_ig" {
 }
 
 # Create and assign a subnet to the VPC
-resource "aws_subnet" "subnet_for_vpc" {
-	vpc_id = aws_vpc.terraform_vpc.id
+resource "aws_subnet" "public_subnet" {
+  vpc_id = aws_vpc.terraform_vpc.id
   cidr_block = "59.59.1.0/24"
 
   map_public_ip_on_launch = true # Make it a public subnet
@@ -37,10 +37,10 @@ resource "aws_subnet" "subnet_for_vpc" {
 
   tags = {
     Name = var.aws_subnet_name
-	}
+  }
 }
 
-# Create a route table
+# Create a public route table
 resource "aws_route_table" "terraform_public_rt" {
   vpc_id = aws_vpc.terraform_vpc.id
 
@@ -56,80 +56,80 @@ resource "aws_route_table" "terraform_public_rt" {
 
 # Add subnet associations for the public subnet
 resource "aws_route_table_association" "public_subnet_assoc" {
-  subnet_id      = aws_subnet.subnet_for_vpc.id
+  subnet_id      = aws_subnet.public_subnet.id
   route_table_id = aws_route_table.terraform_public_rt.id
 }
 
+# Security Group for the web app
 resource "aws_security_group" "terraform_webapp_sg" {
-	name = "eng84_william_terraform_web_sg"
-	description = "Security group for the webapp spun-up from Terraform"
-	vpc_id = aws_vpc.terraform_vpc.id
+  name = "eng84_william_terraform_web_sg"
+  description = "Security group for the webapp spun-up from Terraform"
+  vpc_id = aws_vpc.terraform_vpc.id
 
 	# Inbound rules
-	ingress {
-		from_port = "80"
-		to_port = "80"
-		protocol = "tcp"
-		cidr_blocks = ["0.0.0.0/0"]
-		description = "Allow access from the browser"
+  ingress {
+    from_port = "80"
+    to_port = "80"
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow access from the browser"
 	}
 
-	# ingress {
-	# 	from_port = "22"
-	# 	to_port = "22"
-	# 	protocol = "tcp"
-	# 	cidr_blocks = ["my_ip"]
-	# 	description = "Allow admin to SSH"
-	# }
+  # ingress {
+  #   from_port = "22"
+  #   to_port = "22"
+  #   protocol = "tcp"
+  #   cidr_blocks = ["my_ip"]
+  #   description = "Allow admin to SSH"
+  # }
 
-	# Outboun rules
-	egress {
-		from_port = 0
-		to_port = 0
-		protocol = "-1" # All traffic
-		cidr_blocks = ["0.0.0.0/0"]
-		description = "Allow all traffic out"
-	}
+	# Outbound rules
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1" # All traffic
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all traffic out"
+  }
 
-	tags = {
+  tags = {
     Name = "eng84_william_terraform_web_sg"
-	}
+  }
 }
 
 # Launching an EC2 instance from our web app AMI
 # resource is the keyword that allows us to add AWS resource as task in Ansible
 resource "aws_instance" "web_app_instance" {
-	# var.name_of_resource loads the value from variable.tf
-	ami = var.webapp_ami_id
+  # var.name_of_resource loads the value from variable.tf
+  ami = var.webapp_ami_id
 
-	# Adding the instance type
-	instance_type = "t2.micro"
+  # Adding the instance type
+  instance_type = "t2.micro"
 
-	# Specify the credentials from the env vars (needed for older versions)
-	# AWS_ACCESS_KEY = "AWS_ACCESS_KEY_ID"
-	# AWS_ACCESS_SECRET = "AWS_ACCESS_SECRET"
+  # Specify the credentials from the env vars (needed for older versions)
+  # AWS_ACCESS_KEY = "AWS_ACCESS_KEY_ID"
+  # AWS_ACCESS_SECRET = "AWS_ACCESS_SECRET"
 
-	# Enabling a public IP for the web app
-	associate_public_ip_address = true
+  # Enabling a public IP for the web app
+  associate_public_ip_address = true
 
-	# Specifying the key (to SSH)
-	key_name = var.aws_key_name
-	#public_key = var.aws_key_path
+  # Specifying the key (to SSH)
+  key_name = var.aws_key_name
 
   # Assigning a subnet
-	subnet_id = aws_subnet.subnet_for_vpc.id
+  subnet_id = aws_subnet.public_subnet.id
 
-	# Security group
-	vpc_security_group_ids = [aws_security_group.terraform_webapp_sg.id]
+  # Security group
+  vpc_security_group_ids = [aws_security_group.terraform_webapp_sg.id]
 
   # Move the provisions from local machine to the instance
-  provisioner "file" {
-    source = "scripts/init.sh"
+  provisioner "Transfer init.sh file" {
+    source = "scripts/app/init.sh"
     destination = "/home/ubuntu/init.sh"
   }
   
   # Allow it to be executable and run it
-  provisioner "remote-exec" {
+  provisioner "Execute init.sh remotely" {
     inline = [
       "chmod +x /home/ubuntu/init.sh",
       "sudo /home/ubuntu/init.sh"
@@ -142,8 +142,8 @@ resource "aws_instance" "web_app_instance" {
     private_key = file(var.aws_key_path)
     host        = aws_instance.web_app_instance.public_ip
   }
-
-	tags = {
-		Name = var.webapp_name
-	}
+   
+  tags = {
+    Name = var.webapp_name
+  }
 }

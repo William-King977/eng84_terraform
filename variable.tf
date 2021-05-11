@@ -12,6 +12,10 @@ variable "webapp_ami_id" {
   default = "ami-0b1ba632b3ed6e2d7"
 }
 
+variable "db_ami_id" {
+  default = "ami-0636832f11967cc7d"
+}
+
 variable "aws_subnet_name" {
   default = "eng84_william_terraform_subnet"
 }

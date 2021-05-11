@@ -21,7 +21,7 @@
 * `terraform destroy` - destroys/terminates services running in main.tf
 
 ## Terraform to launch an EC2 with a VPC, subnets, SG services of AWS
-* The steps involving environment variables are specific to Windows.
+* The steps involving environment variables are specific to Windows
 * Within the coding steps, variables from `variable.tf` will be used
 
 ### Step 1: Terraform Installation and Setup
@@ -51,26 +51,38 @@
    }
    ```
 2. Now, we can add the code to configure our VPC using `aws_vpc`.
+   ```
+   resource "aws_vpc" "terraform_vpc" {
+     cidr_block = "59.59.0.0/16"
+     instance_tenancy = "default"
+    
+     tags = {
+       Name = var.aws_vpc_name
+     }
+   }
+   ``` 
+
+### Step 4: Create and Assign an Internet Gateway
+To do this, we will use `aws_internet_gateway`.
 ```
-# Create a VPC
-resource "aws_vpc" "terraform_vpc" {
-  cidr_block = "59.59.0.0/16"
-  instance_tenancy = "default"
-  
+resource "aws_internet_gateway" "terraform_ig" {
+  vpc_id = aws_vpc.terraform_vpc.id
+
   tags = {
-    Name = var.aws_vpc_name
+    Name = "eng84_william_terraform_ig"
   }
 }
-``` 
-
-### Step 4: Create and Assign a Subnet to the VPC
-* To do this, we will use `aws_subnet`.
 ```
-# Create and assign a subnet to the VPC
-resource "aws_subnet" "subnet_for_vpc" {
+
+### Step 5: Create and Assign a Subnet to the VPC
+To do this, we will use `aws_subnet`. This will be our public subnet.
+```
+resource "aws_subnet" "public_subnet" {
   vpc_id = aws_vpc.terraform_vpc.id
   cidr_block = "59.59.1.0/24"
+
   map_public_ip_on_launch = true # Make it a public subnet
+  availability_zone = "eu-west-1c"
 
   tags = {
     Name = var.aws_subnet_name
@@ -78,33 +90,108 @@ resource "aws_subnet" "subnet_for_vpc" {
 }
 ```
 
-### Step 5: Security Groups
+### Step 6: Route Table
+To do this, we will use `aws_route_table`. This will be our public route table, which will allow network traffic from the internet.
+```
+resource "aws_route_table" "terraform_public_rt" {
+  vpc_id = aws_vpc.terraform_vpc.id
 
-### Step 6: Creating an EC2 Instance from an AMI
-* To do this, we will use `aws_instance`. This will create the web app by using it's AMI.
-   ```
-   resource "aws_instance" "web_app_instance" {
-     # Adding the AMI ID
-   ami = var.webapp_ami_id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.terraform_ig.id
+  }
 
-   # Adding the instance type
-   instance_type = "t2.micro"
+  tags = {
+    Name = "eng84_william_terraform_public_rt"
+  }
+}
+```
 
-   # Enabling a public IP for the web app
-   associate_public_ip_address = true
+### Step 7: Subnet Association for the Route Table
+To do this, we will use `aws_route_table_association`. This will associate the public subnet with the public route table.
+```
+resource "aws_route_table_association" "public_subnet_assoc" {
+  subnet_id      = aws_subnet.public_subnet.id
+  route_table_id = aws_route_table.terraform_public_rt.id
+}
+```
 
-   # Specifying the key (to SSH)
-   key_name = var.aws_key_name
+### Step 8: Security Groups
+To do this, we will use `aws_security_group`. This defines the inbound and outbound network traffic rules at an EC2 instance level.
+```
+resource "aws_security_group" "terraform_webapp_sg" {
+  name = "eng84_william_terraform_web_sg"
+  description = "Security group for the webapp spun-up from Terraform"
+  vpc_id = aws_vpc.terraform_vpc.id
 
-   # Assigning a subnet
-   subnet_id = aws_subnet.subnet_for_vpc.id
+  # Inbound rules
+  ingress {
+    from_port = "80"
+    to_port = "80"
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow access from the browser"
+  }
 
-   tags = {
-       Name = var.webapp_name
-     }
-   }
-   ```
+  # Outbound rules
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1" # All traffic
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all traffic out"
+  }
 
-AMI IDs:<br />
-* Web: ami-0b1ba632b3ed6e2d7
-* DB:  ami-0636832f11967cc7d
+  tags = {
+    Name = "eng84_william_terraform_web_sg"
+  }
+}
+```
+
+### Step 9: Creating an EC2 Instance from an AMI
+To do this, we will use `aws_instance`. This will create the web app by using it's AMI.
+```
+resource "aws_instance" "web_app_instance" {
+  ami = var.webapp_ami_id
+  instance_type = "t2.micro"
+  associate_public_ip_address = true
+
+  key_name = var.aws_key_name
+  subnet_id = aws_subnet.public_subnet.id
+
+  # Security group
+  vpc_security_group_ids = [aws_security_group.terraform_webapp_sg.id]
+   
+  tags = {
+    Name = var.webapp_name
+  }
+}
+```
+
+### Step 10: Running the Web App
+The following code needs to be placed in the `aws_instance` code block. This will effectively copy the provision file (`init.sh`) into the web app and run the provision file. The provision file will then execute commands to run the web app automatically.
+```
+# Move the provisions from local machine to the instance
+provisioner "Transfer init.sh file" {
+  # Location of file on local machine
+  source = "scripts/app/init.sh"
+
+  # Location to place in the web app
+  destination = "/home/ubuntu/init.sh"
+}
+  
+# Allow it to be executable and run it
+provisioner "Execute init.sh remotely" {
+  inline = [
+    "chmod +x /home/ubuntu/init.sh",
+    "sudo /home/ubuntu/init.sh"
+  ]
+}
+  
+# Establish the cnnection for provisioning
+connection {
+  user        = "ubuntu"
+  private_key = file(var.aws_key_path)
+  host        = aws_instance.web_app_instance.public_ip
+}
+```
