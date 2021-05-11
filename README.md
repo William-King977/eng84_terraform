@@ -8,6 +8,11 @@
 * Can effectively scale up/down to meet the current load
 * Reduced time to provision
 * Ease of use
+* Little lines of code - a lot of background processes are occurring
+* Always keeping up-to-date
+
+## Terraform Diagram
+![image](Diagrams/Terraform_Diagram.png)
 
 ## Most used Terraform Commands
 * `terraform init` - initialises Terraform with the dependencies of the provider mentioned in main.tf
@@ -16,7 +21,7 @@
 * `terraform destroy` - destroys/terminates services running in main.tf
 
 ## Terraform to launch an EC2 with a VPC, subnets, SG services of AWS
-The steps involving environment variables are specific for Windows.
+The steps involving environment variables are specific to Windows.
 
 ### Step 1: Terraform Installation and Setup
 1. Download Terraform for the applicable platform here: https://www.terraform.io/downloads.html
@@ -88,11 +93,11 @@ resource "aws_subnet" "subnet_for_vpc" {
   cidr_block        = "59.59.1.0/24"
 
   tags = {
-      Name = "eng84_william_terraform_subnet"
+    Name = "eng84_william_terraform_subnet"
   }
 }
 ```
 
 AMI IDs:<br />
-* Web: ami-091a6947402c48d32
-* DB:  ami-0da3421e5dfaa16c9
+* Web: ami-0b1ba632b3ed6e2d7
+* DB:  ami-0636832f11967cc7d

@@ -12,7 +12,7 @@ provider "aws" {
 # resource is the keyword that allows us to add AWS resource as task in Ansible
 resource "aws_instance" "web_app_instance" {
 	# Adding the AMI ID
-	ami = "ami-091a6947402c48d32"
+	ami = "ami-0b1ba632b3ed6e2d7"
 
 	# Adding the instance type
 	instance_type = "t2.micro"
@@ -27,15 +27,19 @@ resource "aws_instance" "web_app_instance" {
 	# Specifying the key (to SSH)
 	key_name = "eng84devops"
 
+  # Assigning a subnet
+	#subnet_id = aws_subnet.subnet_for_vpc.id
+
 	tags = {
 		Name = "eng84_william_terraform_web"
 	}
 }
 
-# Create a default VPC
+# Create a VPC.
 resource "aws_vpc" "terraform_vpc_test" {
 	cidr_block = "59.59.0.0/16"
 	instance_tenancy = "default"
+	availability_zone = "eu-west-1c"
   
 	tags = {
 		Name = "eng84_william_terraform_vpc"
@@ -44,11 +48,11 @@ resource "aws_vpc" "terraform_vpc_test" {
 
 # Create and assign a subnet to the VPC
 resource "aws_subnet" "subnet_for_vpc" {
-	vpc_id            = aws_vpc.terraform_vpc_test.id
-    # availability_zone = "us-west-2a"
-    cidr_block        = "59.59.1.0/24"
+	vpc_id = aws_vpc.terraform_vpc_test.id
+  cidr_block = "59.59.1.0/24"
+  # availability_zone = "us-west-2a"
 
-    tags = {
-		  Name = "eng84_william_terraform_subnet"
+  tags = {
+    Name = "eng84_william_terraform_subnet"
 	}
 }
