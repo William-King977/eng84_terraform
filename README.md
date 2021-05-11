@@ -70,6 +70,7 @@ resource "aws_vpc" "terraform_vpc" {
 resource "aws_subnet" "subnet_for_vpc" {
   vpc_id = aws_vpc.terraform_vpc.id
   cidr_block = "59.59.1.0/24"
+  map_public_ip_on_launch = true # Make it a public subnet
 
   tags = {
     Name = var.aws_subnet_name
@@ -77,7 +78,9 @@ resource "aws_subnet" "subnet_for_vpc" {
 }
 ```
 
-### Step 5: Creating an EC2 Instance from an AMI
+### Step 5: Security Groups
+
+### Step 6: Creating an EC2 Instance from an AMI
 * To do this, we will use `aws_instance`. This will create the web app by using it's AMI.
    ```
    resource "aws_instance" "web_app_instance" {
