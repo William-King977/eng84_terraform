@@ -5,7 +5,7 @@
 # provider is a keyword in Terraform to define the name of the cloud provider
 provider "aws" {
   # Define the region to launch the instance
-	region = "eu-west-1"
+  region = "eu-west-1"
 }
 
 # Create a VPC
@@ -66,24 +66,24 @@ resource "aws_security_group" "terraform_webapp_sg" {
   description = "Security group for the webapp spun-up from Terraform"
   vpc_id = aws_vpc.terraform_vpc.id
 
-	# Inbound rules
+  # Inbound rules
   ingress {
     from_port = "80"
     to_port = "80"
     protocol = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
     description = "Allow access from the browser"
-	}
+  }
 
   # ingress {
   #   from_port = "22"
   #   to_port = "22"
   #   protocol = "tcp"
-  #   cidr_blocks = ["my_ip"]
+  #   cidr_blocks = ["my_ip/32"]
   #   description = "Allow admin to SSH"
   # }
 
-	# Outbound rules
+  # Outbound rules
   egress {
     from_port = 0
     to_port = 0
@@ -123,13 +123,13 @@ resource "aws_instance" "web_app_instance" {
   vpc_security_group_ids = [aws_security_group.terraform_webapp_sg.id]
 
   # Move the provisions from local machine to the instance
-  provisioner "Transfer init.sh file" {
+  provisioner "file" {
     source = "scripts/app/init.sh"
     destination = "/home/ubuntu/init.sh"
   }
   
   # Allow it to be executable and run it
-  provisioner "Execute init.sh remotely" {
+  provisioner "remote-exec" {
     inline = [
       "chmod +x /home/ubuntu/init.sh",
       "sudo /home/ubuntu/init.sh"

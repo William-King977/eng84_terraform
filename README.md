@@ -172,7 +172,7 @@ resource "aws_instance" "web_app_instance" {
 The following code needs to be placed in the `aws_instance` code block. This will effectively copy the provision file (`init.sh`) into the web app and run the provision file. The provision file will then execute commands to run the web app automatically.
 ```
 # Move the provisions from local machine to the instance
-provisioner "Transfer init.sh file" {
+provisioner "file" {
   # Location of file on local machine
   source = "scripts/app/init.sh"
 
@@ -181,7 +181,7 @@ provisioner "Transfer init.sh file" {
 }
   
 # Allow it to be executable and run it
-provisioner "Execute init.sh remotely" {
+provisioner "remote-exec" {
   inline = [
     "chmod +x /home/ubuntu/init.sh",
     "sudo /home/ubuntu/init.sh"
