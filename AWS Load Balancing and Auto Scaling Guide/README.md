@@ -34,10 +34,14 @@ You can either:
 3. Instance type: t2.micro
 4. Select key pair 
 5. Network platform: VPC
-6. Add a network interface:
+6. In resource tags, one can do the following to set the name for each launching instance:
+   * Key: Name
+   * Value: Name_of_instance(s)
+   * Resource types: Instances
+7. Add a network interface:
    * Assign your security group
    * Enable auto-assign public IP
-7. Expand Advanced details
+8. Expand Advanced details
    * In user data, copy and paste your contents from `init.sh`
 
 ### Create Auto Scaling Group:

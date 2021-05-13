@@ -290,6 +290,17 @@ resource "aws_instance" "db_instance" {
 
 
 # Creating a Load Balancer
+# Create the Application Load Balancer
+resource "aws_lb" "load_balancer" {
+  name               = "eng84-william-terraform-lb"
+  internal           = false
+  load_balancer_type = "application"
+  ip_address_type    = "ipv4"
+  enable_deletion_protection = false
+  security_groups    = [aws_security_group.terraform_webapp_sg.id]
+  subnets            = [aws_subnet.public_subnet_1a.id, aws_subnet.public_subnet_1b.id, aws_subnet.public_subnet_1c.id]
+}
+
 # Create the target group:
 resource "aws_lb_target_group" "target_group" {
   name     = "eng84-william-terraform-tg"
@@ -297,17 +308,6 @@ resource "aws_lb_target_group" "target_group" {
   protocol = "HTTP"
   target_type = "instance"
   vpc_id   = aws_vpc.terraform_vpc.id
-}
-
-# Create the Application Load Balancer
-resource "aws_lb" "load_balancer" {
-  name               = "eng84-william-terraform-lb"
-  internal           = false
-  load_balancer_type = "application"
-  ip_address_type    = "ipv4"
-  security_groups    = [aws_security_group.terraform_webapp_sg.id]
-  subnets            = [aws_subnet.public_subnet_1a.id, aws_subnet.public_subnet_1b.id, aws_subnet.public_subnet_1c.id]
-  enable_deletion_protection = false
 }
 
 # Create a listener
@@ -330,15 +330,22 @@ resource "aws_lb_listener" "listener" {
 # Auto Scaling
 # Create a launch template
 resource "aws_launch_template" "launch_template" {
-  name = "eng84_william_terraform_lt"
+  name          = "eng84_william_terraform_lt"
   ebs_optimized = false
-  image_id = var.webapp_ami_id
+  image_id      = var.webapp_ami_id
   instance_type = "t2.micro"
-  #key_name = var.aws_key_name
+  key_name = var.aws_key_name
 
   network_interfaces {
     associate_public_ip_address = true
     security_groups = [aws_security_group.terraform_webapp_sg.id]
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "eng84_william_terraform_asg_web"
+    }
   }
   
   # Run the provision file when a new instance is launched
@@ -349,10 +356,13 @@ resource "aws_launch_template" "launch_template" {
 # Create an auto-scaling group
 resource "aws_autoscaling_group" "auto_scale" {
   name = "eng84_william_terraform_asg"
-  desired_capacity   = 3
-  max_size           = 3
-  min_size           = 3
-
+  desired_capacity = 3
+  max_size         = 3
+  min_size         = 3
+  
+  # Heath checks
+  health_check_grace_period = 250
+  health_check_type         = "ELB"
 
   # Attach load balancer in the form of a target group
   target_group_arns = [aws_lb_target_group.target_group.arn]
