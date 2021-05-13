@@ -28,25 +28,49 @@ resource "aws_internet_gateway" "terraform_ig" {
 }
 
 
-
-
 # Create and assign a public subnet to the VPC
-resource "aws_subnet" "public_subnet" {
+resource "aws_subnet" "public_subnet_1a" {
   vpc_id = aws_vpc.terraform_vpc.id
   cidr_block = "59.59.1.0/24"
+
+  #map_public_ip_on_launch = true # Make it a public subnet
+  availability_zone = "eu-west-1b"
+
+  tags = {
+    Name = "${var.aws_public_subnet_name}_1a"
+  }
+}
+
+# Create and assign a public subnet to the VPC
+resource "aws_subnet" "public_subnet_1b" {
+  vpc_id = aws_vpc.terraform_vpc.id
+  cidr_block = "59.59.2.0/24"
+
+  #map_public_ip_on_launch = true # Make it a public subnet
+  availability_zone = "eu-west-1b"
+
+  tags = {
+    Name = "${var.aws_public_subnet_name}_1b"
+  }
+}
+
+# Create and assign a public subnet to the VPC
+resource "aws_subnet" "public_subnet_1c" {
+  vpc_id = aws_vpc.terraform_vpc.id
+  cidr_block = "59.59.3.0/24"
 
   #map_public_ip_on_launch = true # Make it a public subnet
   availability_zone = "eu-west-1c"
 
   tags = {
-    Name = var.aws_public_subnet_name
+    Name = "${var.aws_public_subnet_name}_1c"
   }
 }
 
 # Create and assign a private subnet to the VPC
 resource "aws_subnet" "private_subnet" {
   vpc_id = aws_vpc.terraform_vpc.id
-  cidr_block = "59.59.2.0/24"
+  cidr_block = "59.59.4.0/24"
 
   #map_public_ip_on_launch = false
   availability_zone = "eu-west-1c"
@@ -75,8 +99,18 @@ resource "aws_route_table" "public_rt" {
 }
 
 # Add subnet associations for the public subnet
-resource "aws_route_table_association" "public_subnet_assoc" {
-  subnet_id      = aws_subnet.public_subnet.id
+resource "aws_route_table_association" "public_subnet_assoc_1" {
+  subnet_id      = aws_subnet.public_subnet_1a.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+resource "aws_route_table_association" "public_subnet_assoc_2" {
+  subnet_id      = aws_subnet.public_subnet_1b.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+resource "aws_route_table_association" "public_subnet_assoc_3" {
+  subnet_id      = aws_subnet.public_subnet_1c.id
   route_table_id = aws_route_table.public_rt.id
 }
 
@@ -90,7 +124,7 @@ resource "aws_route_table" "private_rt" {
 }
 
 # Add subnet associations for the private subnet
-resource "aws_route_table_association" "private_subnet_assoc" {
+resource "aws_route_table_association" "private_subnet_assoc_1" {
   subnet_id      = aws_subnet.private_subnet.id
   route_table_id = aws_route_table.private_rt.id
 }
@@ -213,7 +247,7 @@ resource "aws_instance" "web_app_instance" {
   key_name = var.aws_key_name
 
   # Assigning a subnet
-  subnet_id = aws_subnet.public_subnet.id
+  subnet_id = aws_subnet.public_subnet_1c.id
 
   # Security group
   vpc_security_group_ids = [aws_security_group.terraform_webapp_sg.id]
