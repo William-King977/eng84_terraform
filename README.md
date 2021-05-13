@@ -12,7 +12,7 @@
 * Always keeping up-to-date
 
 ## Terraform Diagram
-![image](Diagrams/Terraform_Diagram.png)
+![image](Diagrams/Terraform.png)
 
 ## Most used Terraform Commands
 * `terraform init` - initialises Terraform with the dependencies of the provider mentioned in main.tf
