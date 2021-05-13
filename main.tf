@@ -34,7 +34,7 @@ resource "aws_subnet" "public_subnet_1a" {
   cidr_block = "59.59.1.0/24"
 
   #map_public_ip_on_launch = true # Make it a public subnet
-  availability_zone = "eu-west-1b"
+  availability_zone = "eu-west-1a"
 
   tags = {
     Name = "${var.aws_public_subnet_name}_1a"
@@ -221,64 +221,148 @@ resource "aws_instance" "db_instance" {
 
   # Security group
   vpc_security_group_ids = [aws_security_group.terraform_db_sg.id]
+
+  # Assign a private IP
+  private_ip = var.db_private_ip
    
   tags = {
     Name = var.db_name
   }
 }
 
-# Launching an EC2 instance from our web app AMI
-# resource is the keyword that allows us to add AWS resource as task in Ansible
-resource "aws_instance" "web_app_instance" {
-  # var.name_of_resource loads the value from variable.tf
-  ami = var.webapp_ami_id
+# # Launching an EC2 instance from our web app AMI
+# # resource is the keyword that allows us to add AWS resource as task in Ansible
+# resource "aws_instance" "web_app_instance" {
+#   # var.name_of_resource loads the value from variable.tf
+#   ami = var.webapp_ami_id
 
-  # Adding the instance type
-  instance_type = "t2.micro"
+#   # Adding the instance type
+#   instance_type = "t2.micro"
 
-  # Specify the credentials from the env vars (needed for older versions)
-  # AWS_ACCESS_KEY = "AWS_ACCESS_KEY_ID"
-  # AWS_ACCESS_SECRET = "AWS_ACCESS_SECRET"
+#   # Specify the credentials from the env vars (needed for older versions)
+#   # AWS_ACCESS_KEY = "AWS_ACCESS_KEY_ID"
+#   # AWS_ACCESS_SECRET = "AWS_ACCESS_SECRET"
 
-  # Enabling a public IP for the web app
-  associate_public_ip_address = true
+#   # Enabling a public IP for the web app
+#   associate_public_ip_address = true
 
-  # Specifying the key (to SSH)
-  key_name = var.aws_key_name
+#   # Specifying the key (to SSH)
+#   key_name = var.aws_key_name
 
-  # Assigning a subnet
-  subnet_id = aws_subnet.public_subnet_1c.id
+#   # Assigning a subnet
+#   subnet_id = aws_subnet.public_subnet_1c.id
 
-  # Security group
-  vpc_security_group_ids = [aws_security_group.terraform_webapp_sg.id]
+#   # Security group
+#   vpc_security_group_ids = [aws_security_group.terraform_webapp_sg.id]
 
-  # Move the provisions from local machine to the instance
-  provisioner "file" {
-    source = "scripts/app/init.sh"
-    destination = "/home/ubuntu/init.sh"
-  }
+#   # Move the provisions from local machine to the instance
+#   provisioner "file" {
+#     source = "scripts/app/init.sh"
+#     destination = "/home/ubuntu/init.sh"
+#   }
   
-  # Allow it to be executable and run it
-  provisioner "remote-exec" {
-    inline = [
-      # Bashrc doesn't work for some reason
-      "echo export DB_HOST='mongodb://${aws_instance.db_instance.private_ip}:27017/posts' | sudo tee -a /etc/profile",
-      "chmod +x /home/ubuntu/init.sh",
-      "sudo /home/ubuntu/init.sh"
-    ]
-  }
+#   # Allow it to be executable and run it
+#   provisioner "remote-exec" {
+#     inline = [
+#       # Bashrc doesn't work for some reason
+#       "echo export DB_HOST='mongodb://${aws_instance.db_instance.private_ip}:27017/posts' | sudo tee -a /etc/profile",
+#       "chmod +x /home/ubuntu/init.sh",
+#       "sudo /home/ubuntu/init.sh"
+#     ]
+#   }
   
-  # Establish the cnnection for provisioning
-  connection {
-    user        = "ubuntu"
-    private_key = file(var.aws_key_path)
-    host        = aws_instance.web_app_instance.public_ip
-  }
+#   # Establish the cnnection for provisioning
+#   connection {
+#     user        = "ubuntu"
+#     private_key = file(var.aws_key_path)
+#     host        = aws_instance.web_app_instance.public_ip
+#   }
    
-  tags = {
-    Name = var.webapp_name
+#   tags = {
+#     Name = var.webapp_name
+#   }
+  
+#   # Database must be running first 
+#   depends_on = [aws_instance.db_instance]
+# }
+
+
+
+
+# Creating a Load Balancer
+# Create the target group:
+resource "aws_lb_target_group" "target_group" {
+  name     = "eng84-william-terraform-tg"
+  port     = 80
+  protocol = "HTTP"
+  target_type = "instance"
+  vpc_id   = aws_vpc.terraform_vpc.id
+}
+
+# Create the Application Load Balancer
+resource "aws_lb" "load_balancer" {
+  name               = "eng84-william-terraform-lb"
+  internal           = false
+  load_balancer_type = "application"
+  ip_address_type    = "ipv4"
+  security_groups    = [aws_security_group.terraform_webapp_sg.id]
+  subnets            = [aws_subnet.public_subnet_1a.id, aws_subnet.public_subnet_1b.id, aws_subnet.public_subnet_1c.id]
+  enable_deletion_protection = false
+}
+
+# Create a listener
+resource "aws_lb_listener" "listener" {
+  load_balancer_arn = aws_lb.load_balancer.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.target_group.arn
+  }
+
+  depends_on = [aws_lb_target_group.target_group, aws_lb.load_balancer]
+}
+
+
+
+
+# Auto Scaling
+# Create a launch template
+resource "aws_launch_template" "launch_template" {
+  name = "eng84_william_terraform_lt"
+  ebs_optimized = false
+  image_id = var.webapp_ami_id
+  instance_type = "t2.micro"
+  #key_name = var.aws_key_name
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [aws_security_group.terraform_webapp_sg.id]
   }
   
-  # Database must be running first 
-  depends_on = [aws_instance.db_instance]
+  # Run the provision file when a new instance is launched
+  user_data = filebase64("scripts/app/init.sh")
+}
+
+# Create the Auto Scaler
+# Create an auto-scaling group
+resource "aws_autoscaling_group" "auto_scale" {
+  name = "eng84_william_terraform_asg"
+  desired_capacity   = 3
+  max_size           = 3
+  min_size           = 3
+
+
+  # Attach load balancer in the form of a target group
+  target_group_arns = [aws_lb_target_group.target_group.arn]
+
+  vpc_zone_identifier = [aws_subnet.public_subnet_1a.id, aws_subnet.public_subnet_1b.id, aws_subnet.public_subnet_1c.id]
+
+  launch_template {
+    id      = aws_launch_template.launch_template.id
+    version = "$Latest"
+  }
+
+  depends_on = [aws_launch_template.launch_template]
 }

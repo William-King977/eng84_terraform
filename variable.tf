@@ -41,4 +41,7 @@ variable "my_ip" {
   default = "79.75.20.132/32"
 }
 
+variable "db_private_ip" {
+  default = "59.59.4.109"
+}
 

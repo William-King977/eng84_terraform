@@ -53,4 +53,5 @@ You can either:
 1. Select the Auto Scaling Group you just created
 2. Edit Group details
 3. Adjust the minimum, desired and maximum capacity, then instances will be launched/terminated based on what you input
+4. Each new web instance will have the app running (and posts works!)
 
